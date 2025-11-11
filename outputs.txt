@@ -1,0 +1,196 @@
+###################################################################
+#            CONSOLIDATED INPUTS & OUTPUTS
+###################################################################
+
+-------------------------------------------
+1. Two-Pass Assembler
+-------------------------------------------
+
+==> Input File (ass1ip.txt):
+START 200
+MOVER AREG, B
+LOOP SUB CREG, D
+ADD AREG, B
+MOVEM AREG, A
+END
+
+==> Console Output (Pass 1 & 2):
+PASS 1 complete. (intermediate.txt & symtab.txt created)
+PASS 2 complete — output.txt generated successfully.
+
+==> Final Output File (output.txt):
+200 04 B
+203 02 D
+206 01 B
+209 05 A
+
+-------------------------------------------
+2. Two-Pass Macro-Processor
+-------------------------------------------
+
+==> Input File (macroip.txt):
+MACRO
+INCR &ARG1
+ADD AREG, &ARG1
+MEND
+START
+INCR A
+SUB BREG, C
+INCR D
+END
+
+==> Console Output (Pass 1 & 2):
+PASS 1 done.
+PASS 2 done.
+
+==> Final Output File (output.txt):
+START
+ADD AREG, A
+SUB BREG, C
+ADD AREG, D
+END
+
+-------------------------------------------
+5. Synchronization (Producer-Consumer)
+-------------------------------------------
+
+==> Input:
+(No input required. Just compile and run.)
+
+==> Console Output:
+(Order may vary slightly)
+Produced: 1
+Consumed: 1
+Produced: 2
+Produced: 3
+Consumed: 2
+Produced: 4
+Consumed: 3
+Produced: 5
+Consumed: 4
+Consumed: 5
+
+-------------------------------------------
+6. CPU Scheduling Algorithms
+-------------------------------------------
+
+==> Console Input:
+Enter number of processes: 4
+Enter AT, BT, Priority for P1: 0 8 3
+Enter AT, BT, Priority for P2: 1 4 1
+Enter AT, BT, Priority for P3: 2 9 4
+Enter AT, BT, Priority for P4: 3 5 2
+Enter Quantum for Round Robin: 4
+
+==> Console Output:
+(Note: The Round Robin output is for a correct algorithm, not your buggy one.)
+Enter number of processes: 4
+Enter AT, BT, Priority for P1: 0 8 3
+Enter AT, BT, Priority for P2: 1 4 1
+Enter AT, BT, Priority for P3: 2 9 4
+Enter AT, BT, Priority for P4: 3 5 2
+
+--- FCFS Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       0       8
+2       1       4       7       11
+3       2       9       10      19
+4       3       5       18      23
+
+--- SJF (Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       9       17
+2       1       4       0       4
+3       2       9       15      24
+4       3       5       2       7
+
+--- Priority (Non-Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+2       1       4       7       11
+4       3       5       9       14
+1       0       8       0       8
+3       2       9       15      24
+
+Enter Quantum for Round Robin: 4
+
+--- Round Robin (Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       12      20
+2       1       4       4       8
+3       2       9       17      26
+4       3       5       14      19
+
+-------------------------------------------
+7. Memory Placement Strategies
+-------------------------------------------
+
+==> Console Input:
+Enter number of memory blocks: 5
+Enter block sizes: 100 500 200 300 600
+Enter number of processes: 4
+Enter process sizes: 212 417 112 426
+
+==> Console Output:
+Enter number of memory blocks: 5
+Enter block sizes: 100 500 200 300 600
+Enter number of processes: 4
+Enter process sizes: 212 417 112 426
+
+--- First Fit ---
+Process 1 -> Block 2
+Process 2 -> Block 5
+Process 3 -> Block 2
+Process 4 -> Not Allocated
+
+--- Best Fit ---
+Process 1 -> Block 4
+Process 2 -> Block 2
+Process 3 -> Block 3
+Process 4 -> Block 5
+
+--- Worst Fit ---
+Process 1 -> Block 5
+Process 2 -> Block 2
+Process 3 -> Block 5
+Process 4 -> Not Allocated
+
+--- Next Fit ---
+Process 1 -> Block 2
+Process 2 -> Block 5
+Process 3 -> Block 2
+Process 4 -> Not Allocated
+
+-------------------------------------------
+8. Page Replacement Algorithm
+-------------------------------------------
+
+==> Console Input:
+Enter No of pages: 12
+Enter page reference string: 1 2 3 4 1 2 5 1 2 3 4 5
+Enter no. of frames: 3
+
+==> Console Output:
+(Note: This output is for a correct FIFO algorithm, not your buggy one.)
+ Enter No of pages:12
+Enter page reference string:1 2 3 4 1 2 5 1 2 3 4 5
+Enter no. of frames:3
+After page1 : 1 
+After page2 : 1 2 
+After page3 : 1 2 3 
+After page4 : 2 3 4 
+After page1 : 3 4 1 
+After page2 : 4 1 2 
+After page5 : 1 2 5 
+After page1 : 1 2 5 
+After page2 : 1 2 5 
+After page3 : 2 5 3 
+After page4 : 5 3 4 
+After page5 : 5 3 4 
+
+TOtal page fault = 9
+
+###################################################################

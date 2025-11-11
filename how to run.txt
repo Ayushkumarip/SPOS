@@ -1,0 +1,104 @@
+@ECHO OFF
+REM This is a Windows Batch Script (.bat) to compile and run your C++ programs.
+
+REM --- Step 1: Create the input files (Windows-style) ---
+ECHO Creating ass1ip.txt and macroip.txt...
+
+(
+ECHO START 200
+ECHO MOVER AREG, B
+ECHO LOOP SUB CREG, D
+ECHO ADD AREG, B
+ECHO MOVEM AREG, A
+ECHO END
+) > ass1ip.txt
+
+(
+ECHO MACRO
+ECHO INCR ^&ARG1
+ECHO LDA ^&ARG1
+ECHO ADD =1
+ECHO STA ^&ARG1
+ECHO MEND
+ECHO START
+ECHO INCR A
+ECHO INCR B
+ECHO END
+) > macroip.txt
+
+
+ECHO Input files created.
+ECHO -------------------------------------------
+
+REM --- Assignment 1: Two-Pass Assembler ---
+ECHO Running Two-Pass Assembler...
+g++ assemblerpass1.cpp -o assembler1.exe
+g++ assemblerpass2.cpp -o assembler2.exe
+.\assembler1.exe
+.\assembler2.exe
+REM Rename output
+move output.txt assembler_output.txt
+ECHO Assembler complete. Check 'assembler_output.txt'.
+REM Clean up intermediate files
+del intermediate.txt symtab.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 2: Two-Pass Macro-Processor ---
+ECHO --- Compiling and Running Macro-Processor ---
+g++ macropass1.cpp -o macro1.exe
+.\macro1.exe
+g++ macropass2.cpp -o macro2.exe
+.\macro2.exe
+ECHO --- Final Macro-Processor Output: ---
+type output.txt
+
+REM --- Assignment 5: Synchronization ---
+ECHO Running Synchronization (Producer-Consumer)...
+REM Note: This assumes you are using a MinGW g++ compiler.
+g++ asss4.cpp -o asss4.exe -lpthread
+.\asss4.exe
+ECHO -------------------------------------------
+
+REM --- Assignment 6: CPU Scheduling ---
+ECHO Running CPU Scheduling...
+g++ ass5.cpp -o ass5.exe
+REM We create a temporary input file and use < to redirect it
+(
+ECHO 4
+ECHO 0 8 3
+ECHO 1 4 1
+ECHO 2 9 4
+ECHO 3 5 2
+ECHO 4
+) > ass5_input.txt
+.\ass5.exe < ass5_input.txt
+del ass5_input.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 7: Memory Placement ---
+ECHO Running Memory Placement...
+g++ ass6.cpp -o ass6.exe
+REM Create temp input file and redirect
+(
+ECHO 5
+ECHO 100 500 200 300 600
+ECHO 4
+ECHO 212 417 112 426
+) > ass6_input.txt
+.\ass6.exe < ass6_input.txt
+del ass6_input.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 8: Page Replacement ---
+ECHO Running Page Replacement...
+g++ ass7.cpp -o ass7.exe
+REM Create temp input file and redirect
+(
+ECHO 12
+ECHO 1 2 3 4 1 2 5 1 2 3 4 5
+ECHO 3
+) > ass7_input.txt
+.\ass7.exe < ass7_input.txt
+del ass7_input.txt
+ECHO -------------------------------------------
+ECHO All programs executed.

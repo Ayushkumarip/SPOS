@@ -1,0 +1,52 @@
+-------------------------------------------
+1. Two-Pass Assembler (File: ass1ip.txt)
+-------------------------------------------
+START 200
+MOVER AREG, B
+LOOP SUB CREG, D
+ADD AREG, B
+MOVEM AREG, A
+END
+
+-------------------------------------------
+2. Two-Pass Macro-Processor (File: macroip.txt)
+-------------------------------------------
+MACRO
+INCR &ARG1
+ADD AREG, &ARG1
+MEND
+START
+INCR A
+SUB BREG, C
+INCR D
+END
+
+-------------------------------------------
+5. Synchronization (asss4.cpp)
+-------------------------------------------
+(No input required. Just compile and run.)
+
+-------------------------------------------
+6. CPU Scheduling (ass5.cpp)
+-------------------------------------------
+Enter number of processes: 4
+Enter AT, BT, Priority for P1: 0 8 3
+Enter AT, BT, Priority for P2: 1 4 1
+Enter AT, BT, Priority for P3: 2 9 4
+Enter AT, BT, Priority for P4: 3 5 2
+Enter Quantum for Round Robin: 4
+
+-------------------------------------------
+7. Memory Placement (ass6.cpp)
+-------------------------------------------
+Enter number of memory blocks: 5
+Enter block sizes: 100 500 200 300 600
+Enter number of processes: 4
+Enter process sizes: 212 417 112 426
+
+-------------------------------------------
+8. Page Replacement (ass7.cpp)
+-------------------------------------------
+Enter No of pages: 12
+Enter page reference string: 1 2 3 4 1 2 5 1 2 3 4 5
+Enter no. of frames: 3
