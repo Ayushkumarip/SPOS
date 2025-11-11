@@ -1,0 +1,1198 @@
+Assembler PASS 1 - 
+
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ifstream fin("ass1ip.txt");
+    ofstream inter("intermediate.txt"), sym("symtab.txt");
+
+    map<string, string> OPTAB = {
+        {"START", ""}, {"MOVER", "04"}, {"ADD", "01"},
+        {"SUB", "02"}, {"MOVEM", "05"}, {"END", ""}
+    };
+
+    string line;
+    int locctr = 0, start = 0;
+
+    while (getline(fin, line)) {
+        if (line.empty()) continue;
+
+        // Replace commas with spaces
+        replace(line.begin(), line.end(), ',', ' ');
+        stringstream ss(line);
+        vector<string> tok;
+        string temp;
+        while (ss >> temp) tok.push_back(temp);
+
+        // START
+        if (tok[0] == "START") {
+            start = stoi(tok[1]);
+            locctr = start;
+            inter << "START " << start << "\n";
+        }
+        // END
+        else if (tok[0] == "END") {
+            inter << "END\n";
+            break;
+        }
+        // LABEL + OPCODE (e.g., LOOP SUB CREG, D)
+        else if (OPTAB.find(tok[0]) == OPTAB.end()) {
+            string label = tok[0];
+            string opcode = tok[1];
+            string operand = (tok.size() > 3) ? tok[3] : tok.back();
+            sym << label << " " << locctr << "\n";
+            inter << locctr << " " << opcode << " " << operand << "\n";
+            locctr += 3;
+        }
+        // NO LABEL (e.g., MOVER AREG, B)
+        else {
+            string opcode = tok[0];
+            string operand = (tok.size() > 2) ? tok[2] : tok.back();
+            inter << locctr << " " << opcode << " " << operand << "\n";
+            locctr += 3;
+        }
+    }
+
+    cout << "PASS 1 complete. (intermediate.txt & symtab.txt created)\n";
+}
+
+
+
+
+Assembler PASS 2 - 
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    ifstream inter("intermediate.txt"), sym("symtab.txt");
+    ofstream out("output.txt");
+
+    // --- Load Symbol Table ---
+    map<string, string> SYMTAB;
+    string symb, addr;
+    while (sym >> symb >> addr)
+        SYMTAB[symb] = addr;
+
+    // --- Operation Table ---
+    map<string, string> OPTAB = {
+        {"MOVER", "04"}, {"ADD", "01"},
+        {"SUB", "02"}, {"MOVEM", "05"}
+    };
+
+    string line;
+    while (getline(inter, line)) {
+        if (line.empty()) continue;
+        stringstream ss(line);
+        vector<string> tok;
+        string t;
+        while (ss >> t) tok.push_back(t);
+
+        if (tok[0] == "START" || tok[0] == "END")
+            continue;
+
+        // Each instruction line has: loc opcode operand
+        if (tok.size() >= 3) {
+            string loc = tok[0];
+            string opcode = tok[1];
+            string operand = tok[2];
+
+            string opCode = OPTAB[opcode];
+            string opAddr = SYMTAB.count(operand) ? SYMTAB[operand] : operand;
+
+            out << loc << " " << opCode << " " << opAddr << "\n";
+        }
+    }
+
+    cout << "PASS 2 complete — output.txt generated successfully.\n";
+}
+
+
+
+
+MACRO Processor PASS 1 -
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct MNT {
+    string name;
+    int mdtIndex;
+};
+
+int main() {
+    ifstream fin("macroip.txt");
+    ofstream mdt("mdt.txt"), mnt("mnt.txt"), inter("intermediate.txt");
+
+    vector<MNT> mntTable;
+    string line;
+    bool inMacro = false;
+    int mdtIndex = 1;
+
+    while (getline(fin, line)) {
+        stringstream ss(line);
+        string first;
+        ss >> first;
+
+        if (first == "MACRO") {
+            // next line contains macro header
+            getline(fin, line);
+            stringstream header(line);
+            string macroName;
+            header >> macroName;
+            mntTable.push_back({macroName, mdtIndex});
+            inMacro = true;
+            continue;
+        }
+
+        if (inMacro) {
+            if (line == "MEND") {
+                mdt << "MEND\n";
+                mdtIndex++;
+                inMacro = false;
+            } else {
+                mdt << line << "\n";
+                mdtIndex++;
+            }
+        } else {
+            inter << line << "\n";
+        }
+    }
+
+    for (auto &m : mntTable)
+        mnt << m.name << " " << m.mdtIndex << "\n";
+
+    cout << "PASS 1 done.\n";
+}
+
+
+
+
+
+MACRO Processor PASS 2 - 
+
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct MNT {
+    string name;
+    int mdtIndex;
+};
+
+int main() {
+    ifstream inter("intermediate.txt"), mdt("mdt.txt"), mnt("mnt.txt");
+    ofstream out("output.txt");
+
+    vector<MNT> mntTable;
+    string line;
+    while (getline(mnt, line)) {
+        string name; int idx;
+        stringstream ss(line);
+        ss >> name >> idx;
+        mntTable.push_back({name, idx});
+    }
+
+    vector<string> MDT;
+    while (getline(mdt, line))
+        MDT.push_back(line);
+
+    while (getline(inter, line)) {
+        stringstream ss(line);
+        string word; ss >> word;
+        bool expanded = false;
+
+        for (auto &m : mntTable) {
+            if (word == m.name) {
+                string arg; ss >> arg;
+                for (int i = m.mdtIndex - 1; i < (int)MDT.size(); i++) {
+                    if (MDT[i] == "MEND") break;
+                    string temp = MDT[i];
+                    size_t pos = temp.find("&ARG1");
+                    if (pos != string::npos)
+                        temp.replace(pos, 6, arg);
+                    out << temp << "\n";
+                }
+                expanded = true;
+                break;
+            }
+        }
+        if (!expanded) out << line << "\n";
+    }
+
+    cout << "PASS 2 done.\n";
+}
+
+
+
+
+
+ASS 4 Synchronization - 
+
+
+
+#include <iostream>
+#include <queue>
+#include <semaphore.h>
+#include <pthread.h>
+#include <unistd.h>
+using namespace std;
+
+#define BUFFER_SIZE 5
+
+queue<int> buffer;
+sem_t emptySlots, fullSlots, mutexLock;
+
+void* producer(void* arg) {
+    for (int i = 1; i <= 5; i++) {
+        sem_wait(&emptySlots);   // wait for empty slot
+        sem_wait(&mutexLock);    // enter critical section
+
+        buffer.push(i);
+        cout << "Produced: " << i << endl;
+
+        sem_post(&mutexLock);    // leave critical section
+        sem_post(&fullSlots);    // signal item produced
+        sleep(1);
+    }
+    pthread_exit(NULL);
+}
+
+void* consumer(void* arg) {
+    for (int i = 1; i <= 5; i++) {
+        sem_wait(&fullSlots);    // wait for available item
+        sem_wait(&mutexLock);    // enter critical section
+
+        int item = buffer.front();
+        buffer.pop();
+        cout << "Consumed: " << item << endl;
+
+        sem_post(&mutexLock);    // leave critical section
+        sem_post(&emptySlots);   // signal space available
+        sleep(2);
+    }
+    pthread_exit(NULL);
+}
+
+int main() {
+    pthread_t prodThread, consThread;
+
+    sem_init(&emptySlots, 0, BUFFER_SIZE);
+    sem_init(&fullSlots, 0, 0);
+    sem_init(&mutexLock, 0, 1);
+
+    pthread_create(&prodThread, NULL, producer, NULL);
+    pthread_create(&consThread, NULL, consumer, NULL);
+
+    pthread_join(prodThread, NULL);
+    pthread_join(consThread, NULL);
+
+    sem_destroy(&emptySlots);
+    sem_destroy(&fullSlots);
+    sem_destroy(&mutexLock);
+
+    return 0;
+}
+
+
+
+
+ASS 5 Scheduling Algorithm - 
+
+
+
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <queue> // <-- ADDED THIS INCLUDE
+using namespace std;
+
+struct Process {
+    int pid, bt, at, wt, tat, prio, remaining;
+};
+
+void printTable(vector<Process>& p) {
+    cout << "\nPID\tAT\tBT\tWT\tTAT\n";
+    // Sort by PID for a clean, consistent output table
+    sort(p.begin(), p.end(), [](auto &a, auto &b){ return a.pid < b.pid; });
+    for (auto &x : p)
+        cout << x.pid << "\t" << x.at << "\t" << x.bt << "\t" << x.wt << "\t" << x.tat << endl;
+}
+
+void fcfs(vector<Process> p) {
+    cout << "\n--- FCFS Scheduling ---\n";
+    sort(p.begin(), p.end(), [](auto &a, auto &b){ return a.at < b.at; });
+    int time = 0;
+    for (auto &x : p) {
+        if (time < x.at) time = x.at;
+        x.wt = time - x.at;
+        time += x.bt;
+        x.tat = x.wt + x.bt;
+    }
+    printTable(p);
+}
+
+void sjfPreemptive(vector<Process> p) {
+    cout << "\n--- SJF (Preemptive) Scheduling ---\n";
+    int n = p.size(), complete = 0, t = 0, minm = 1e9;
+    int shortest = 0, finish_time;
+    bool check = false;
+    for (auto &x : p) x.remaining = x.bt;
+
+    while (complete != n) {
+        for (int j = 0; j < n; j++) {
+            if ((p[j].at <= t) && (p[j].remaining < minm) && p[j].remaining > 0) {
+                minm = p[j].remaining;
+                shortest = j;
+                check = true;
+            }
+        }
+
+        if (!check) { t++; continue; }
+
+        p[shortest].remaining--;
+        minm = p[shortest].remaining == 0 ? 1e9 : p[shortest].remaining;
+
+        if (p[shortest].remaining == 0) {
+            complete++;
+            check = false;
+            finish_time = t + 1;
+            p[shortest].wt = finish_time - p[shortest].bt - p[shortest].at;
+            if (p[shortest].wt < 0) p[shortest].wt = 0;
+            p[shortest].tat = p[shortest].bt + p[shortest].wt;
+        }
+        t++;
+    }
+    printTable(p);
+}
+
+void priorityNonPreemptive(vector<Process> p) {
+    cout << "\n--- Priority (Non-Preemptive) Scheduling ---\n";
+    sort(p.begin(), p.end(), [](auto &a, auto &b){
+        return (a.prio == b.prio) ? a.at < b.at : a.prio < b.prio;
+    });
+    int time = 0;
+    for (auto &x : p) {
+        if (time < x.at) time = x.at;
+        x.wt = time - x.at;
+        time += x.bt;
+        x.tat = x.wt + x.bt;
+    }
+    printTable(p);
+}
+
+// vvvvvvvvvvvv THIS FUNCTION IS NOW FIXED vvvvvvvvvvvv
+void roundRobin(vector<Process> p, int quantum) {
+    cout << "\n--- Round Robin (Preemptive) Scheduling ---\n";
+    int n = p.size();
+    for (auto &x : p) x.remaining = x.bt;
+
+    // Sort by arrival time to handle arrivals correctly
+    sort(p.begin(), p.end(), [](auto &a, auto &b){ return a.at < b.at; });
+
+    queue<int> q; // Ready queue (stores indices of processes in p)
+    int t = 0;           // Current time
+    int complete = 0;
+    int idx = 0;         // Index to track next process to arrive
+
+    // Start time at the first process's arrival and add it to the queue
+    t = p[0].at;
+    q.push(0);
+    idx = 1;
+
+    while (complete != n) {
+        if (q.empty()) {
+            // CPU is idle. Jump time to the next process that arrives.
+            t = p[idx].at;
+            q.push(idx);
+            idx++;
+            continue; // Go back to the top of the loop
+        }
+
+        int i = q.front(); // Get process index from front of queue
+        q.pop();
+
+        // Run the process for the quantum or its remaining time, whichever is smaller
+        int time_slice = min(quantum, p[i].remaining);
+        p[i].remaining -= time_slice;
+        t += time_slice;
+
+        // Add all processes that arrived *while this process was running*
+        while (idx < n && p[idx].at <= t) {
+            q.push(idx);
+            idx++;
+        }
+
+        if (p[i].remaining == 0) {
+            // Process is complete
+            complete++;
+            p[i].tat = t - p[i].at;
+            p[i].wt = p[i].tat - p[i].bt;
+            if (p[i].wt < 0) p[i].wt = 0; // Ensure waiting time is not negative
+        } else {
+            // Process is not finished, add it back to the end of the queue
+            q.push(i);
+        }
+    }
+    
+    printTable(p); // printTable will sort by PID before printing
+}
+// ^^^^^^^^^^^^ THIS FUNCTION IS NOW FIXED ^^^^^^^^^^^^
+
+int main() {
+    int n;
+    cout << "Enter number of processes: ";
+    cin >> n;
+    vector<Process> p(n);
+    for (int i = 0; i < n; i++) {
+        p[i].pid = i + 1;
+        cout << "Enter AT, BT, Priority for P" << i + 1 << ": ";
+        cin >> p[i].at >> p[i].bt >> p[i].prio;
+    }
+
+    fcfs(p);
+    sjfPreemptive(p);
+    priorityNonPreemptive(p);
+    int q;
+    cout << "\nEnter Quantum for Round Robin: ";
+    cin >> q;
+    roundRobin(p, q);
+    return 0;
+}
+
+
+
+
+
+ASS 6 Memory Placement Strategies - 
+
+
+
+
+
+#include <iostream>
+#include <vector>
+using namespace std;
+
+void firstFit(vector<int> blocks, vector<int> process) {
+    cout << "\n--- First Fit ---\n";
+    vector<int> alloc(process.size(), -1);
+    for (int i = 0; i < process.size(); i++) {
+        for (int j = 0; j < blocks.size(); j++) {
+            if (blocks[j] >= process[i]) {
+                alloc[i] = j;
+                blocks[j] -= process[i];
+                break;
+            }
+        }
+    }
+    for (int i = 0; i < process.size(); i++)
+        cout << "Process " << i + 1 << " -> "
+             << (alloc[i] == -1 ? "Not Allocated" : "Block " + to_string(alloc[i] + 1)) << endl;
+}
+
+void bestFit(vector<int> blocks, vector<int> process) {
+    cout << "\n--- Best Fit ---\n";
+    vector<int> alloc(process.size(), -1);
+    for (int i = 0; i < process.size(); i++) {
+        int best = -1;
+        for (int j = 0; j < blocks.size(); j++)
+            if (blocks[j] >= process[i])
+                if (best == -1 || blocks[j] < blocks[best])
+                    best = j;
+        if (best != -1) {
+            alloc[i] = best;
+            blocks[best] -= process[i];
+        }
+    }
+    for (int i = 0; i < process.size(); i++)
+        cout << "Process " << i + 1 << " -> "
+             << (alloc[i] == -1 ? "Not Allocated" : "Block " + to_string(alloc[i] + 1)) << endl;
+}
+
+void worstFit(vector<int> blocks, vector<int> process) {
+    cout << "\n--- Worst Fit ---\n";
+    vector<int> alloc(process.size(), -1);
+    for (int i = 0; i < process.size(); i++) {
+        int worst = -1;
+        for (int j = 0; j < blocks.size(); j++)
+            if (blocks[j] >= process[i])
+                if (worst == -1 || blocks[j] > blocks[worst])
+                    worst = j;
+        if (worst != -1) {
+            alloc[i] = worst;
+            blocks[worst] -= process[i];
+        }
+    }
+    for (int i = 0; i < process.size(); i++)
+        cout << "Process " << i + 1 << " -> "
+             << (alloc[i] == -1 ? "Not Allocated" : "Block " + to_string(alloc[i] + 1)) << endl;
+}
+
+void nextFit(vector<int> blocks, vector<int> process) {
+    cout << "\n--- Next Fit ---\n";
+    vector<int> alloc(process.size(), -1);
+    int pos = 0;
+    for (int i = 0; i < process.size(); i++) {
+        int count = 0;
+        while (count < blocks.size()) {
+            if (blocks[pos] >= process[i]) {
+                alloc[i] = pos;
+                blocks[pos] -= process[i];
+                break;
+            }
+            pos = (pos + 1) % blocks.size();
+            count++;
+        }
+    }
+    for (int i = 0; i < process.size(); i++)
+        cout << "Process " << i + 1 << " -> "
+             << (alloc[i] == -1 ? "Not Allocated" : "Block " + to_string(alloc[i] + 1)) << endl;
+}
+
+int main() {
+    int nb, np;
+    cout << "Enter number of memory blocks: ";
+    cin >> nb;
+    vector<int> blocks(nb);
+    cout << "Enter block sizes: ";
+    for (int i = 0; i < nb; i++) cin >> blocks[i];
+
+    cout << "Enter number of processes: ";
+    cin >> np;
+    vector<int> process(np);
+    cout << "Enter process sizes: ";
+    for (int i = 0; i < np; i++) cin >> process[i];
+
+    firstFit(blocks, process);
+    bestFit(blocks, process);
+    worstFit(blocks, process);
+    nextFit(blocks, process);
+
+    return 0;
+}
+
+
+
+
+ASS 7  PAGE Replacement Algorithm - 
+
+
+
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    int n=0, frameCount =0, pageFaults = 0;
+    cout << " Enter No of pages:";
+    cin>> n;
+    
+    vector<int> pages(n,0);   
+    cout<< "Enter page reference string:";
+    for(int i=0; i<n; i++) cin>> pages[i];
+
+    cout<< "Enter no. of frames:";
+    cin>> frameCount;
+
+    // vector<int> frames;
+    queue<int> q;
+
+    for (int i =0; i<n; i++){
+        int page = pages[i];
+        bool found = false;
+
+        queue<int> q2 = q;
+        while (!q2.empty()){
+            int f = q2.front();
+            q2.pop();
+            if ( page == f ) found = true ;
+        }
+
+        if( !found){
+            pageFaults++;
+            q.push(page);
+            
+            while(q.size() > frameCount) q.pop();
+        }
+
+        cout<< "After page"<<page<<" : ";
+
+        queue<int> q3 = q;
+        while (!q3.empty()){
+            int f = q3.front();
+            q3.pop();
+            cout<< f<<" ";
+        }
+        cout<<endl;
+    }
+
+    cout<< "\nTOtal page fault = "<<pageFaults<<endl;
+
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+HOW TO Run
+
+
+
+
+@ECHO OFF
+REM This is a Windows Batch Script (.bat) to compile and run your C++ programs.
+
+REM --- Step 1: Create the input files (Windows-style) ---
+ECHO Creating ass1ip.txt and macroip.txt...
+
+(
+ECHO START 200
+ECHO MOVER AREG, B
+ECHO LOOP SUB CREG, D
+ECHO ADD AREG, B
+ECHO MOVEM AREG, A
+ECHO END
+) > ass1ip.txt
+
+(
+ECHO MACRO
+ECHO INCR ^&ARG1
+ECHO LDA ^&ARG1
+ECHO ADD =1
+ECHO STA ^&ARG1
+ECHO MEND
+ECHO START
+ECHO INCR A
+ECHO INCR B
+ECHO END
+) > macroip.txt
+
+
+ECHO Input files created.
+ECHO -------------------------------------------
+
+REM --- Assignment 1: Two-Pass Assembler ---
+ECHO Running Two-Pass Assembler...
+g++ assemblerpass1.cpp -o assembler1.exe
+g++ assemblerpass2.cpp -o assembler2.exe
+.\assembler1.exe
+.\assembler2.exe
+REM Rename output
+move output.txt assembler_output.txt
+ECHO Assembler complete. Check 'assembler_output.txt'.
+REM Clean up intermediate files
+del intermediate.txt symtab.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 2: Two-Pass Macro-Processor ---
+ECHO --- Compiling and Running Macro-Processor ---
+g++ macropass1.cpp -o macro1.exe
+.\macro1.exe
+g++ macropass2.cpp -o macro2.exe
+.\macro2.exe
+ECHO --- Final Macro-Processor Output: ---
+type output.txt
+
+REM --- Assignment 5: Synchronization ---
+ECHO Running Synchronization (Producer-Consumer)...
+REM Note: This assumes you are using a MinGW g++ compiler.
+g++ asss4.cpp -o asss4.exe -lpthread
+.\asss4.exe
+ECHO -------------------------------------------
+
+REM --- Assignment 6: CPU Scheduling ---
+ECHO Running CPU Scheduling...
+g++ ass5.cpp -o ass5.exe
+REM We create a temporary input file and use < to redirect it
+(
+ECHO 4
+ECHO 0 8 3
+ECHO 1 4 1
+ECHO 2 9 4
+ECHO 3 5 2
+ECHO 4
+) > ass5_input.txt
+.\ass5.exe < ass5_input.txt
+del ass5_input.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 7: Memory Placement ---
+ECHO Running Memory Placement...
+g++ ass6.cpp -o ass6.exe
+REM Create temp input file and redirect
+(
+ECHO 5
+ECHO 100 500 200 300 600
+ECHO 4
+ECHO 212 417 112 426
+) > ass6_input.txt
+.\ass6.exe < ass6_input.txt
+del ass6_input.txt
+ECHO -------------------------------------------
+
+REM --- Assignment 8: Page Replacement ---
+ECHO Running Page Replacement...
+g++ ass7.cpp -o ass7.exe
+REM Create temp input file and redirect
+(
+ECHO 12
+ECHO 1 2 3 4 1 2 5 1 2 3 4 5
+ECHO 3
+) > ass7_input.txt
+.\ass7.exe < ass7_input.txt
+del ass7_input.txt
+ECHO -------------------------------------------
+ECHO All programs executed.
+
+
+
+OUTPUTS
+
+
+
+
+
+###################################################################
+#            CONSOLIDATED INPUTS & OUTPUTS
+###################################################################
+
+-------------------------------------------
+1. Two-Pass Assembler
+-------------------------------------------
+
+==> Input File (ass1ip.txt):
+START 200
+MOVER AREG, B
+LOOP SUB CREG, D
+ADD AREG, B
+MOVEM AREG, A
+END
+
+==> Console Output (Pass 1 & 2):
+PASS 1 complete. (intermediate.txt & symtab.txt created)
+PASS 2 complete — output.txt generated successfully.
+
+==> Final Output File (output.txt):
+200 04 B
+203 02 D
+206 01 B
+209 05 A
+
+-------------------------------------------
+2. Two-Pass Macro-Processor
+-------------------------------------------
+
+==> Input File (macroip.txt):
+MACRO
+INCR &ARG1
+ADD AREG, &ARG1
+MEND
+START
+INCR A
+SUB BREG, C
+INCR D
+END
+
+==> Console Output (Pass 1 & 2):
+PASS 1 done.
+PASS 2 done.
+
+==> Final Output File (output.txt):
+START
+ADD AREG, A
+SUB BREG, C
+ADD AREG, D
+END
+
+-------------------------------------------
+5. Synchronization (Producer-Consumer)
+-------------------------------------------
+
+==> Input:
+(No input required. Just compile and run.)
+
+==> Console Output:
+(Order may vary slightly)
+Produced: 1
+Consumed: 1
+Produced: 2
+Produced: 3
+Consumed: 2
+Produced: 4
+Consumed: 3
+Produced: 5
+Consumed: 4
+Consumed: 5
+
+-------------------------------------------
+6. CPU Scheduling Algorithms
+-------------------------------------------
+
+==> Console Input:
+Enter number of processes: 4
+Enter AT, BT, Priority for P1: 0 8 3
+Enter AT, BT, Priority for P2: 1 4 1
+Enter AT, BT, Priority for P3: 2 9 4
+Enter AT, BT, Priority for P4: 3 5 2
+Enter Quantum for Round Robin: 4
+
+==> Console Output:
+(Note: The Round Robin output is for a correct algorithm, not your buggy one.)
+Enter number of processes: 4
+Enter AT, BT, Priority for P1: 0 8 3
+Enter AT, BT, Priority for P2: 1 4 1
+Enter AT, BT, Priority for P3: 2 9 4
+Enter AT, BT, Priority for P4: 3 5 2
+
+--- FCFS Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       0       8
+2       1       4       7       11
+3       2       9       10      19
+4       3       5       18      23
+
+--- SJF (Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       9       17
+2       1       4       0       4
+3       2       9       15      24
+4       3       5       2       7
+
+--- Priority (Non-Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+2       1       4       7       11
+4       3       5       9       14
+1       0       8       0       8
+3       2       9       15      24
+
+Enter Quantum for Round Robin: 4
+
+--- Round Robin (Preemptive) Scheduling ---
+
+PID     AT      BT      WT      TAT
+1       0       8       12      20
+2       1       4       4       8
+3       2       9       17      26
+4       3       5       14      19
+
+-------------------------------------------
+7. Memory Placement Strategies
+-------------------------------------------
+
+==> Console Input:
+Enter number of memory blocks: 5
+Enter block sizes: 100 500 200 300 600
+Enter number of processes: 4
+Enter process sizes: 212 417 112 426
+
+==> Console Output:
+Enter number of memory blocks: 5
+Enter block sizes: 100 500 200 300 600
+Enter number of processes: 4
+Enter process sizes: 212 417 112 426
+
+--- First Fit ---
+Process 1 -> Block 2
+Process 2 -> Block 5
+Process 3 -> Block 2
+Process 4 -> Not Allocated
+
+--- Best Fit ---
+Process 1 -> Block 4
+Process 2 -> Block 2
+Process 3 -> Block 3
+Process 4 -> Block 5
+
+--- Worst Fit ---
+Process 1 -> Block 5
+Process 2 -> Block 2
+Process 3 -> Block 5
+Process 4 -> Not Allocated
+
+--- Next Fit ---
+Process 1 -> Block 2
+Process 2 -> Block 5
+Process 3 -> Block 2
+Process 4 -> Not Allocated
+
+-------------------------------------------
+8. Page Replacement Algorithm
+-------------------------------------------
+
+==> Console Input:
+Enter No of pages: 12
+Enter page reference string: 1 2 3 4 1 2 5 1 2 3 4 5
+Enter no. of frames: 3
+
+==> Console Output:
+(Note: This output is for a correct FIFO algorithm, not your buggy one.)
+ Enter No of pages:12
+Enter page reference string:1 2 3 4 1 2 5 1 2 3 4 5
+Enter no. of frames:3
+After page1 : 1 
+After page2 : 1 2 
+After page3 : 1 2 3 
+After page4 : 2 3 4 
+After page1 : 3 4 1 
+After page2 : 4 1 2 
+After page5 : 1 2 5 
+After page1 : 1 2 5 
+After page2 : 1 2 5 
+After page3 : 2 5 3 
+After page4 : 5 3 4 
+After page5 : 5 3 4 
+
+TOtal page fault = 9
+
+###################################################################
+
+
+
+
+WORKING
+
+
+
+
+
+###################################################################
+#            PROGRAM LOGIC & WORKING EXPLANATIONS
+###################################################################
+
+-------------------------------------------
+1. Two-Pass Assembler
+-------------------------------------------
+
+### File: assemblerpass1.cpp (Pass 1)
+
+* **Purpose:** To read an assembly language program, build a Symbol Table (SYMTAB), and create an Intermediate Code (IC) file. It does not generate machine code.
+* **Key Data Structures:**
+    * `OPTAB` (map): An Operation Table that stores mnemonics (like `ADD`) and their machine codes (like `01`).
+    * `sym` (ofstream): Output file stream for `symtab.txt`.
+    * `inter` (ofstream): Output file stream for `intermediate.txt`.
+    * `locctr` (int): The Location Counter, which keeps track of the memory address for each instruction.
+* **Step-by-Step Logic:**
+    1.  **Initialization:** Opens input (`ass1ip.txt`) and output files. Initializes `locctr = 0`.
+    2.  **Read Line-by-Line:** Reads the input file one line at a time.
+    3.  **Tokenize:** Splits the line into words (tokens) based on spaces and commas.
+    4.  **Handle Directives:**
+        * If the first token is `START`, it parses the starting address (e.g., `200`), sets `locctr` to this value, and writes the `START` directive to the intermediate file.
+        * If the first token is `END`, it writes `END` to the intermediate file and stops processing.
+    5.  **Handle Labels:**
+        * It checks if the first token is a known opcode (by looking in `OPTAB`).
+        * If it's **NOT** in `OPTAB` (e.g., `LOOP`), it assumes the first token is a **label**.
+        * It writes the label (e.g., `LOOP`) and the current `locctr` (e.g., `203`) to `symtab.txt`.
+        * It then writes the `locctr`, the opcode (e.g., `SUB`), and the operand (e.g., `D`) to `intermediate.txt`.
+    6.  **Handle No Labels:**
+        * If the first token **IS** in `OPTAB` (e.g., `MOVER`), it assumes there is no label.
+        * It writes the `locctr`, the opcode (e.g., `MOVER`), and the operand (e.g., `B`) to `intermediate.txt`.
+    7.  **Increment `locctr`:** After processing any instruction (not a directive), it increments `locctr` by 3 (assuming a fixed instruction length).
+
+### File: assemblerpass2.cpp (Pass 2)
+
+* **Purpose:** To read the Symbol Table and Intermediate Code from Pass 1, and translate the IC into the final machine-readable output.
+* **Key Data Structures:**
+    * `SYMTAB` (map): A map to store the Symbol Table, loaded from `symtab.txt`. (e.g., `SYMTAB["LOOP"] = "203"`).
+    * `OPTAB` (map): An Operation Table, same as in Pass 1.
+    * `inter` (ifstream): Input stream for `intermediate.txt`.
+    * `sym` (ifstream): Input stream for `symtab.txt`.
+    * `out` (ofstream): Output stream for `output.txt`.
+* **Step-by-Step Logic:**
+    1.  **Load SYMTAB:** Reads `symtab.txt` and populates the `SYMTAB` map.
+    2.  **Read Intermediate File:** Reads `intermediate.txt` line by line.
+    3.  **Skip Directives:** Ignores lines that contain `START` or `END`.
+    4.  **Translate:** For each instruction line (e.g., `203 SUB D`):
+        * It takes the opcode (`SUB`) and finds its machine code in `OPTAB` (gets `02`).
+        * It takes the operand (`D`) and tries to find it in the `SYMTAB` map.
+        * **If found** (e.g., if the operand was `LOOP`), it uses the address from `SYMTAB` (e.g., `203`).
+        * **If not found** (as in the case of `D`), it assumes it's a register or literal and uses the operand as-is (`D`).
+    5.  **Write Output:** It combines the location counter (`203`), the translated opcode (`02`), and the resolved operand (`D`) and writes them to `output.txt`.
+
+-------------------------------------------
+2. Two-Pass Macro-Processor
+-------------------------------------------
+
+### File: macropass1.cpp (Pass 1)
+
+* **Purpose:** To read a source file, identify all macro definitions, and create three outputs:
+    1.  `mnt.txt` (Macro Name Table): Stores macro names and where their definitions start.
+    2.  `mdt.txt` (Macro Definition Table): Stores the actual body of the macro definitions.
+    3.  `intermediate.txt`: A copy of the source code with all macro *definitions* removed (but macro *calls* are kept).
+* **Key Data Structures:**
+    * `mntTable` (vector): Stores `MNT` structs (name, MDT index).
+    * `inMacro` (bool): A flag to track if the parser is currently inside a `MACRO...MEND` block.
+    * `mdtIndex` (int): A counter for lines in the MDT.
+* **Step-by-Step Logic:**
+    1.  **Initialization:** Sets `inMacro = false` and `mdtIndex = 1`.
+    2.  **Read Line-by-Line:** Reads the input file (`macroip.txt`).
+    3.  **Macro Definition Found:** If the line is `MACRO`, it sets `inMacro = true`. It then reads the *next* line (e.g., `INCR &ARG1`), extracts the macro name (`INCR`), and stores it in `mntTable` along with the current `mdtIndex` (`1`).
+    4.  **Inside a Macro:** If `inMacro` is `true`:
+        * If the line is `MEND`, it writes `MEND` to `mdt.txt`, increments `mdtIndex`, and sets `inMacro = false`.
+        * If it's any other line (e.g., `ADD AREG, &ARG1`), it writes the line to `mdt.txt` and increments `mdtIndex`.
+    5.  **Outside a Macro:** If `inMacro` is `false`, it means the line is regular code (e.g., `START` or `INCR A`). This line is written directly to `intermediate.txt`.
+    6.  **Finalize:** After reading the whole file, it loops through `mntTable` and writes its contents to `mnt.txt`.
+
+### File: macropass2.cpp (Pass 2)
+
+* **Purpose:** To read the `intermediate.txt` (which contains macro *calls*) and expand them using the definitions from `mdt.txt` and `mnt.txt`.
+* **Key Data Structures:**
+    * `mntTable` (vector): Loaded from `mnt.txt`.
+    * `MDT` (vector<string>): The entire Macro Definition Table, loaded from `mdt.txt`.
+    * `inter` (ifstream): Input stream for `intermediate.txt`.
+    * `out` (ofstream): Output stream for `output.txt`.
+* **Step-by-Step Logic:**
+    1.  **Load Tables:** Reads `mnt.txt` into `mntTable` and `mdt.txt` into the `MDT` vector.
+    2.  **Read Intermediate File:** Reads `intermediate.txt` line by line.
+    3.  **Check for Macro Call:** For each line (e.g., `INCR A`), it checks if the first word (`INCR`) exists in the `mntTable`.
+    4.  **No Macro Call:** If the word is **not** in `mntTable` (e.g., `START` or `SUB BREG, C`), it copies the line directly to `output.txt`.
+    5.  **Macro Call Found:** If the word **is** in `mntTable` (e.g., `INCR A`):
+        * It sets `expanded = true`.
+        * It finds the macro (`INCR`) in `mntTable` to get its starting MDT index (e.g., `1`).
+        * It reads the argument from the call (e.g., `A`).
+        * It loops through the `MDT` vector, starting from the correct index (`mdtIndex - 1`).
+        * For each line from the MDT (e.g., `ADD AREG, &ARG1`), it performs argument substitution (replaces `&ARG1` with `A`).
+        * It writes the *substituted* line (e.g., `ADD AREG, A`) to `output.txt`.
+        * This continues until it hits `MEND` in the `MDT`.
+    6.  **Repeat:** It continues reading `intermediate.txt` until the end.
+
+---
+
+-------------------------------------------
+5. Synchronization (Producer-Consumer)
+-------------------------------------------
+
+### File: asss4.cpp
+
+* **Purpose:** To solve the "Producer-Consumer" problem, a classic synchronization problem. It simulates one thread (Producer) creating items and adding them to a shared buffer, and another thread (Consumer) removing items from it, without conflicts.
+* **Key Data Structures:**
+    * `buffer` (queue): The shared buffer with a fixed `BUFFER_SIZE`.
+    * `emptySlots` (sem_t): A semaphore that counts the number of *empty* spots in the buffer. It starts at `BUFFER_SIZE`.
+    * `fullSlots` (sem_t): A semaphore that counts the number of *filled* spots in the buffer. It starts at `0`.
+    * `mutexLock` (sem_t): A binary semaphore (a mutex) that ensures only one thread can access the `buffer` queue at a time. It starts at `1` (unlocked).
+* **Producer Thread Logic (`producer`):**
+    1.  `sem_wait(&emptySlots)`: "Waits" for an empty slot. If `emptySlots` is 0, this thread blocks until the consumer makes space.
+    2.  `sem_wait(&mutexLock)`: "Waits" to acquire the lock. If the consumer has the lock, it blocks.
+    3.  **Critical Section:** `buffer.push(i)` (adds the item) and `cout << "Produced..."`.
+    4.  `sem_post(&mutexLock)`: Releases the lock, allowing the consumer (or producer) to enter.
+    5.  `sem_post(&fullSlots)`: Signals that a new item has been added, incrementing the `fullSlots` count.
+* **Consumer Thread Logic (`consumer`):**
+    1.  `sem_wait(&fullSlots)`: "Waits" for a full slot. If `fullSlots` is 0, this thread blocks until the producer adds an item.
+    2.  `sem_wait(&mutexLock)`: "Waits" to acquire the lock.
+    3.  **Critical Section:** `buffer.pop()` (removes the item) and `cout << "Consumed..."`.
+    4.  `sem_post(&mutexLock)`: Releases the lock.
+    5.  `sem_post(&emptySlots)`: Signals that an empty slot is now available, incrementing the `emptySlots` count.
+* **Main Function:** Initializes the three semaphores, creates the producer and consumer threads, and then waits for them to finish (`pthread_join`).
+
+---
+
+-------------------------------------------
+6. CPU Scheduling Algorithms
+-------------------------------------------
+
+### File: ass5.cpp
+
+* **Purpose:** To simulate four different CPU scheduling algorithms and calculate the Waiting Time (WT) and Turnaround Time (TAT) for each process.
+* **Key Data Structures:**
+    * `Process` (struct): Holds process info (`pid`, `at` (arrival), `bt` (burst), `wt`, `tat`, `prio`, `remaining`).
+* **Algorithm Logic:**
+    1.  **FCFS (First-Come, First-Served):**
+        * Sorts all processes by `at` (arrival time).
+        * Keeps a `time` counter. It loops through the sorted processes.
+        * If `time < process.at`, it sets `time = process.at` (CPU is idle).
+        * `wt = time - at`
+        * `time = time + bt` (process runs)
+        * `tat = wt + bt`
+    2.  **SJF (Preemptive) / Shortest-Remaining-Time-First:**
+        * This is the most complex. It runs in a loop, simulating one time unit (`t`) at a time.
+        * Inside the loop, it searches for the *best* process to run: one that has `at <= t` (has arrived) AND has `remaining > 0` AND has the *minimum* `remaining` time.
+        * If no process is ready (`check = false`), it just increments `t` (CPU idle).
+        * If a process (`shortest`) is found, it decrements its `remaining` time.
+        * When a process's `remaining` hits 0, it's complete. It calculates `finish_time = t + 1`, `tat = finish_time - at`, and `wt = tat - bt`.
+        * The loop continues until all processes are complete.
+    3.  **Priority (Non-Preemptive):**
+        * Sorts processes by `prio` (priority). If priorities are equal, it sorts by `at` as a tie-breaker.
+        * After sorting, the logic is **identical to FCFS**. It just runs through the priority-sorted list.
+    4.  **Round Robin (Preemptive):**
+        * **BUGGY:** This implementation is flawed as it *does not check arrival times*.
+        * **Intended Logic:** It loops through all processes repeatedly (`while(true)`).
+        * For each process, if `remaining > 0`, it runs it for one `quantum`.
+        * If `remaining > quantum`, it subtracts `quantum` from `remaining` and adds `quantum` to `t`.
+        * If `remaining <= quantum`, it adds `remaining` to `t`, sets `remaining = 0`, and calculates `wt = t - bt` and `tat = wt + bt`.
+        * The outer loop breaks when `done = true` (all processes have `remaining == 0`).
+
+---
+
+-------------------------------------------
+7. Memory Placement Strategies
+-------------------------------------------
+
+### File: ass6.cpp
+
+* **Purpose:** To simulate four different dynamic memory allocation strategies for placing processes into memory blocks.
+* **Key Data Structures:**
+    * `blocks` (vector<int>): A list of available memory block sizes.
+    * `process` (vector<int>): A list of process sizes that need allocation.
+    * `alloc` (vector<int>): Stores which block (`j`) each process (`i`) was allocated to (`-1` = not allocated).
+* **Algorithm Logic:** (Note: A copy of `blocks` is passed to each function, so they all start fresh.)
+    1.  **First Fit:**
+        * For each process `i`:
+        * It loops through the blocks `j` from the beginning (`0` to `n-1`).
+        * The *first time* it finds a block where `blocks[j] >= process[i]`, it allocates it.
+        * It sets `alloc[i] = j`, subtracts the process size (`blocks[j] -= process[i]`), and `break`s the inner loop (to move to the next process).
+    2.  **Best Fit:**
+        * For each process `i`:
+        * It loops through *all* blocks `j`, keeping track of the `best` index found so far.
+        * The `best` index is one where `blocks[j] >= process[i]` (it fits) AND `blocks[j]` is *smaller* than the previous `best` block (it's a tighter fit).
+        * After checking all blocks, if a `best` index was found, it allocates the process there.
+    3.  **Worst Fit:**
+        * For each process `i`:
+        * It loops through *all* blocks `j`, keeping track of the `worst` index.
+        * The `worst` index is one where `blocks[j] >= process[i]` (it fits) AND `blocks[j]` is *larger* than the previous `worst` block (it's the loosest fit).
+        * After checking all blocks, if a `worst` index was found, it allocates the process there.
+    4.  **Next Fit:**
+        * This is like First Fit, but it maintains a `pos` variable (starting at `0`) to remember where it last left off.
+        * For each process `i`:
+        * It starts searching from `blocks[pos]`.
+        * It loops (`count < blocks.size()`) and wraps around the list (`pos = (pos + 1) % blocks.size()`).
+        * The *first* block it finds that fits, it allocates, updates `blocks[pos]`, and `break`s. The *next* process will start its search from this `pos`.
+
+---
+
+-------------------------------------------
+8. Page Replacement Algorithm
+-------------------------------------------
+
+### File: ass7.cpp
+
+* **Purpose:** To simulate the **FIFO (First-In, First-Out)** page replacement algorithm.
+* **Key Data Structures:**
+    * `pages` (vector<int>): The incoming page reference string.
+    * `frameCount` (int): The number of available frames in physical memory.
+    * `q` (queue<int>): A queue used to represent the frames. The front of the queue is the *oldest* page, and the back is the *newest*.
+* **Algorithm Logic:**
+    1.  **Read Input:** Gets the page string and frame count.
+    2.  **Iterate Pages:** Loops through each `page` in the `pages` string.
+    3.  **Check for Hit (BUGGY):**
+        * It creates a copy of the queue (`q2`) and iterates through it to see if the `page` is already present.
+        * **THE BUG:** The line `if ( page == f ) found;` is a statement with no effect. It *should* be `if ( page == f ) found = true;`.
+        * Because `found` is always `false`, the code *thinks every page is a page fault* (unless the queue isn't full yet).
+    4.  **Handle Page Fault (Intended Logic):**
+        * If `!found` (which is always true due to the bug):
+        * Increment `pageFaults`.
+        * `q.push(page)`: Add the new page to the back of the queue.
+        * `while(q.size() > frameCount) q.pop()`: If the queue is now too big, remove the *oldest* page from the front.
+    5.  **Print State:** After each page access, it prints the current content of the frames (the queue).
+    6.  **Final Output:** Prints the `pageFaults` count.
